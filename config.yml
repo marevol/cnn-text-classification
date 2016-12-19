@@ -1,0 +1,50 @@
+################################################################################
+#
+# Command Settings
+#
+
+vectorize:
+ function: "main.vectorize"
+ pos_files:
+  - "rt-polarity.pos"
+ neg_files:
+  - "rt-polarity.neg"
+ file_encoding: "latin-1"
+
+cv:
+ function: "main.cv"
+ w2v_file: "GoogleNews-vectors-negative300.bin"
+ non_static: True
+ vector_type: "word2vec"
+ phase: 1
+ split: 10
+ model:
+  wv_size: 300
+  filter_sizes:
+   - 3
+   - 4
+   - 5
+  hidden_units:
+   - 100
+   - 2
+  output_channel: 100
+ batch_size: 1000
+ epoch: 100
+ gpu: 0
+ fold_out: True
+
+################################################################################
+#
+# Default Settings
+#
+default:
+ data_file: "dataset.dat"
+
+################################################################################
+#
+# Logging
+#
+logging:
+ basic_config:
+  level: "INFO"
+  format: '%(asctime)s : %(levelname)s : %(message)s'

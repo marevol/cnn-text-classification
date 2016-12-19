@@ -1,0 +1,13 @@
+*.log
+*.pyc
+.DS_Store
+target/
+.classpath
+.project
+.settings
+.idea
+*.iml
+.pydevproject
+.ipynb_checkpoints/
+GoogleNews-vectors-negative300.bin
+dataset.dat
