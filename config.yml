@@ -28,10 +28,10 @@ cv:
    - 100
    - 2
   output_channel: 100
- batch_size: 1000
+ batch_size: 500
  epoch: 100
  gpu: 0
- fold_out: True
+ fold_out: False
 
 ################################################################################
 #

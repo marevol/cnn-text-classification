@@ -37,6 +37,7 @@ def clean_str(string, TREC=False):
     string = re.sub(r"\(", " \( ", string)
     string = re.sub(r"\)", " \) ", string)
     string = re.sub(r"\?", " \? ", string)
+    string = re.sub(r"'", " ", string)
     string = re.sub(r"\s{2,}", " ", string)
     return string.strip() if TREC else string.strip().lower()
 
@@ -66,14 +67,14 @@ def load_bin_vec(fname, vocab):
     return word_vecs
 
 
-def add_unknown_words(word_vecs, vocab, min_df=1, k=300):
-    """
-    For words that occur in at least min_df documents, create a separate word vector.
-    0.25 is chosen so the unknown vectors have (approximately) same variance as pre-trained ones
-    """
+def add_unknown_words(word_vecs, vocab, k=300):
+    unknown = 0
     for word in vocab:
-        if word not in word_vecs and vocab[word] >= min_df:
+        if word not in word_vecs:
             word_vecs[word] = np.random.uniform(-0.25, 0.25, k)
+            logger.info('%s is not found in word2vec.', word)
+            unknown += 1
+    logger.info('%d words are not found in word2vec.', unknown)
 
 
 def vectorize(config):
@@ -81,7 +82,7 @@ def vectorize(config):
 
     datasets = []
     targets = []
-    vocab = {}
+    vocab = {"": 0}
 
     def process_text_file(path, y):
         max_len = 0
@@ -95,7 +96,7 @@ def vectorize(config):
                 words = set(word_list)
                 for word in words:
                     if word not in vocab:
-                        vocab[word] = len(vocab) + 1
+                        vocab[word] = len(vocab)
                 wordid_list = []
                 for word in word_list:
                     wordid_list.append(vocab[word])
@@ -122,6 +123,8 @@ def vectorize(config):
 
 
 def cv(config):
+    np.random.seed(3435)
+
     data_file = config.get('data_file')
     with open(data_file, "rb") as f:
         (datasets, targets, vocab) = pickle.load(f)
@@ -152,6 +155,7 @@ def cv(config):
         logger.info('Cross Validation: %d/%d', phase, config.get('phase'))
         kf = KFold(n_splits=config.get('split'))
         for train_index, test_index in kf.split(datasets):
+            train_index = np.random.permutation(train_index)
             X_train = datasets[train_index]
             Y_train = targets[train_index]
             X_test = datasets[test_index]
@@ -182,7 +186,8 @@ def create_classifier(n_vocab, doc_length, wv_size, filter_sizes, hidden_units, 
                     output_channel=output_channel,
                     initialW=initialW,
                     non_static=non_static)
-    optimizer = optimizers.Adam()
+#    optimizer = optimizers.Adam()
+    optimizer = optimizers.AdaDelta()
     return (model, ChainerEstimator(model=SoftmaxCrossEntropyClassifier(model),
                                     optimizer=optimizer,
                                     batch_size=batch_size,
@@ -199,7 +204,7 @@ class NNModel(Chain):
         self.doc_length = doc_length
         self.non_static = non_static
 
-        self.add_link('embed', F.EmbedID(n_vocab, wv_size, initialW=initialW))
+        self.add_link('embed', F.EmbedID(n_vocab, wv_size, initialW=initialW, ignore_label=0))
         for filter_h in self.filter_sizes:
             filter_w = wv_size
             filter_shape = (filter_h, filter_w)
@@ -211,7 +216,7 @@ class NNModel(Chain):
     def __call__(self, x, train=True):
         hlist = []
         h_0 = self['embed'](x)
-        if self.non_static:
+        if not self.non_static:
             h_0 = Variable(h_0.data)
         h_1 = F.reshape(h_0, (h_0.shape[0], 1, h_0.shape[1], h_0.shape[2]))
         for filter_h in self.filter_sizes:
